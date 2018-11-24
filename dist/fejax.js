@@ -1,7 +1,7 @@
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('whatitis')) :
 	typeof define === 'function' && define.amd ? define(['whatitis'], factory) :
-	(global.whatenvis = factory(global.is));
+	(global.fejax = factory(global.is));
 }(this, (function (is) { 'use strict';
 
 var is__default = 'default' in is ? is['default'] : is;
@@ -286,6 +286,12 @@ var toConsumableArray = function (arr) {
     return Array.from(arr);
   }
 };
+
+// content-type 表示上传的数据格式
+// get 没有 content-type
+// post 表单数据 application/x-www-form-urlencoded
+//      上传文件 不用设置 content-type
+// responseType 是接受的数据格式
 
 var MIMETYPES = {
   TEXT: '*/*',

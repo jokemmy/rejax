@@ -5,6 +5,12 @@ import invariant from 'invariant';
 import compose from './compose';
 import convertor from './convertor';
 
+// content-type 表示上传的数据格式
+// get 没有 content-type
+// post 表单数据 application/x-www-form-urlencoded
+//      上传文件 不用设置 content-type
+// responseType 是接受的数据格式
+
 var MIMETYPES = {
   TEXT: '*/*',
   XML: 'text/xml',
