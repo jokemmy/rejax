@@ -1,2 +1,2 @@
-# rejax
+# Fejax
 Fetch like Ajax
