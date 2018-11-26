@@ -5,7 +5,6 @@ import invariant from 'invariant';
 import is, { property } from 'whatitis';
 import ajaxXhr from './xhr';
 import compose from './compose';
-import Chain from './chain';
 
 
 const isDev = process && process.env.NODE_ENV === 'development';
@@ -257,7 +256,7 @@ function Ajax( url, options ) {
   // create new chain of ajax
   function newAjax( options ) {
     let abort;
-    const chain = Chain.of(( resolve, reject ) => {
+    const chain = Promise.of(( resolve, reject ) => {
       const callback = allocator( resolve, reject, options );
       abort = ajaxXhr( options )
         .then( callback( true ))
@@ -358,7 +357,7 @@ function Ajax( url, options ) {
       handlerBefore( ...xhrs );
     }
 
-    sending = Chain.all( xhrs ).then(( ...results ) => {
+    sending = Promise.all( xhrs ).then(( ...results ) => {
       let result;
       if ( handlerThen ) {
         result = handlerThen( ...results );
