@@ -1,33 +1,53 @@
 
+
 import is from 'whatitis';
 import invariant from 'invariant';
 import compose from './compose';
 import convertor from './convertor';
 
+// POST 的四种数据格式 content-type
+// text/xml
+// application/json
+// application/x-www-form-urlencoded 发送表单数据
+// multipart/form-data 不用手动设置直接发送带有文件的FormData就会被浏览器自动设置
+
 // content-type 表示上传的数据格式
-// get 没有 content-type
+// get 不用设置 content-type
 // post 表单数据 application/x-www-form-urlencoded
 //      上传文件 不用设置 content-type
-// responseType 是接受的数据格式
+// responseType 是接受的数据格式 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
 
-const MIMETYPES = {
-  TEXT: '*/*',
-  XML: 'text/xml',
-  JSON: 'application/json',
-  POST: 'application/x-www-form-urlencoded',
-  DOCUMENT: 'text/html'
+const ContentType = {
+  XML: 'text/xml; charset=utf-8',
+  TEXT: 'text/plain; charset=utf-8',
+  JSON: 'application/json; charset=utf-8',
+  FORMDATA: 'application/x-www-form-urlencoded'
 };
 
+// const charset = 'charset=utf-8';
+
+// 一般不用手动设置
 const ACCEPT = {
-  TEXT: '*/*',
+  '*': '*/*',
+  HTML: 'text/html; q=1.0, text/*; q=0.8, */*; q=0.1',
+  TEXT: 'text/plain; q=1.0, text/*; q=0.8, */*; q=0.1',
   XML: 'application/xml; q=1.0, text/xml; q=0.8, */*; q=0.1',
-  JSON: 'application/json; q=1.0, text/*; q=0.8, */*; q=0.1'
+  JSON: 'application/json; q=1.0, text/*; q=0.8, */*; q=0.1',
+  SCRIPT: 'application/javascript; q=1.0, text/javascript; q=1.0, application/ecmascript; q=0.8, application/x-ecmascript; q=0.8, */*; q=0.1',
+  DEFAULT: 'application/json; q=1.0, text/plain; q=0.8, */*; q=0.1'
 };
 
 
-function hasHeader( name_ ) {
+// accept-language: zh-CN,zh;q=0.9,en;q=0.8
+// referer: https://www.jianshu.com/p/df889c2b9988
+// accept-encoding: gzip, deflate, br
+// Accept: text/javascript, application/javascript, application/ecmascript, application/x-ecmascript, */*; q=0.01
+// Accept-Encoding: gzip, deflate, br
+// Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+
+function hasHeader( name ) {
   return function( headers ) {
-    return Object.keys( headers ).some( name => name.toLowerCase() === name_.toLowerCase());
+    return Object.keys( headers ).some( key => key.toLowerCase() === name.toLowerCase());
   };
 }
 
@@ -44,9 +64,8 @@ function encode( value ) {
 }
 
 function getQueryString( object ) {
-  return Object.keys( object ).reduce(( acc, item ) => {
-    const prefix = !acc ? '' : `${acc}&`;
-    return `${prefix + encode( item )}=${encode( object[item])}`;
+  return Object.keys( object ).reduce(( qs, item ) => {
+    return `${( qs || `${qs}&` ) + encode( item )}=${encode( object[item])}`;
   }, '' );
 }
 
@@ -59,11 +78,11 @@ function setHeaders( xhr, { headers, dataType, method }) {
   const TYPE = dataType.toUpperCase();
 
   if ( !hasAccept( headers )) {
-    headers.Accept = ACCEPT[TYPE] || ACCEPT.TEXT;
+    headers.Accept = ACCEPT.DEFAULT;
   }
 
   if ( !hasContentType( headers ) && method !== 'get' ) {
-    headers['Content-Type'] = MIMETYPES.POST;
+    headers['Content-Type'] = ContentType.POST;
   }
 
   Object.keys( headers ).forEach( name => {
@@ -75,9 +94,9 @@ function setHeaders( xhr, { headers, dataType, method }) {
 
 function getDataType( xhr ) {
   const ct = xhr.getResponseHeader( 'Content-Type' );
-  if ( ct.indexOf( MIMETYPES.JSON ) > -1 ) {
+  if ( ct.indexOf( ContentType.JSON ) > -1 ) {
     return 'json';
-  } else if ( ct.indexOf( MIMETYPES.XML ) > -1 ) {
+  } else if ( ct.indexOf( ContentType.XML ) > -1 ) {
     return 'xml';
   }
   return 'text';
@@ -276,7 +295,7 @@ function xhrConnection( method, url, data, options ) {
       nativeParsing = xhr2 && ( xhr.responseType === options.dataType );
     } catch ( e ) {} // eslint-disable-line
   } else if ( 'overrideMimeType' in xhr ) {
-    xhr.overrideMimeType( MIMETYPES[options.dataType.toUpperCase()]);
+    xhr.overrideMimeType( ContentType[options.dataType.toUpperCase()]);
   }
 
   const ctors = nativeParsing || convertors( options.dataType );
@@ -346,7 +365,9 @@ const defaultOption = {
   // async: true,
   user: '',
   password: '',
-  dataType: 'json',
+  dataType: 'json', // jsonp text domstring json xml arraybuffer blob document html script
+  responseType: undefined, // 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
+  contentType: '',
   cache: false
 };
 
@@ -362,16 +383,14 @@ function getOption({
   crossDomain,
   user,
   password,
-  dataType,
+  dataType, // 类似 responseType, 相同优先 responseType
+  responseType,
+  contentType,
   cache
 }) {
 
   const options = Object.assign({}, defaultOption );
   options.headers = Object.assign({}, options.headers );
-
-  if ( is.String( method ) && method ) {
-    options.method = method;
-  }
 
   if ( is.PlainObject( headers )) {
     Object.assign( options.headers, headers );
@@ -387,10 +406,6 @@ function getOption({
 
   if ( is.String( baseUrl ) && baseUrl ) {
     options.baseUrl = baseUrl;
-  }
-
-  if ( data ) {
-    options.data = is.PlainObject( data ) ? Object.assign({}, data ) : data;
   }
 
   if ( is.String( url ) && url ) {
@@ -411,25 +426,54 @@ function getOption({
     }
   }
 
-  if ( Object.keys( MIMETYPES ).includes( dataType.toUpperCase())) {
+  if ([ 'xml', 'json', 'text', 'html', 'script' ].includes( dataType.toLowerCase())) {
     options.dataType = dataType;
   }
 
-  // "arraybuffer", "blob", "document", "json", or "text"
-  if ( 'ArrayBuffer' in window && data instanceof ArrayBuffer ) {
-    options.dataType = 'arraybuffer';
-  } else if ( 'Blob' in window && data instanceof Blob ) {
-    options.dataType = 'blob';
-  } else if ( 'Document' in window && data instanceof Document ) {
-    options.dataType = 'document';
-  } else if ( 'FormData' in window && data instanceof FormData ) {
-    options.dataType = 'json';
+  // 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
+  // if ( 'ArrayBuffer' in window && data instanceof ArrayBuffer ) {
+  //   options.dataType = 'arraybuffer';
+  // } else if ( 'Blob' in window && data instanceof Blob ) {
+  //   options.dataType = 'blob';
+  // } else if ( 'Document' in window && data instanceof Document ) {
+  //   options.dataType = 'document';
+  // } else if ( 'FormData' in window && data instanceof FormData ) {
+  //   options.dataType = 'json';
+  // }
+
+  // arraybuffer blob document stream 返回值可能需要相应的处理
+  // json 将字符串自动转换成对象 xhr2不用手动转换
+  // text 不处理接受的数据
+  if ([ 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream' ].includes( responseType.toLowerCase())) {
+    options.responseType = responseType;
+  }
+
+  // formdata xml text 不处理数据, data 应该是字符串或 formdata 对象
+  // json 转换成字符串发送, data 是普通对象
+  if ([ 'xml', 'json', 'text', 'formdata' ].includes( contentType.toLowerCase())) {
+    options.contentType = contentType;
+  }
+
+  // 如果是PlainObject就浅克隆
+  if ( data ) {
+    // options.data = is.PlainObject( data ) ? Object.assign({}, data ) : data;
+    options.data = data;
+  }
+
+  if ( is.String( method ) && method ) {
+    options.method = method;
   }
 
   if ( is.Object( headers )) {
-    const cacheControl = headers['Cache-Control'];
-    if ( !cache && !is.String( cacheControl ) && cacheControl ) {
-      options.headers['Cache-Control'] = 'no-cache';
+    // 使用no-cache的目的就是为了防止从缓存中获取过期的资源
+    // const pragma = headers['Pragma']; // HTTP1.0-1.1
+    // const cacheControl = headers['Cache-Control']; // HTTP1.1
+    // if ( !cache && !is.String( cacheControl ) && cacheControl ) {
+    //   options.headers['Cache-Control'] = 'no-cache';
+    //   options.headers['Pragma'] = 'no-cache';
+    // }
+    if ( !cache ) {
+      options.headers['Cache-Control'] = 'no-store';
     }
   }
 
