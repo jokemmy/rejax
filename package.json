@@ -39,6 +39,7 @@
   "dependencies": {
     "invariant": "^2.2.4",
     "object.pick": "^1.3.0",
+    "qs": "^6.6.0",
     "whatitis": "^1.1.2"
   },
   "devDependencies": {

@@ -1,9 +1,11 @@
 
 
+import qs from 'qs';
 import is from 'whatitis';
 import invariant from 'invariant';
+import buildURL from './buildURL';
 import compose from './compose';
-import convertor from './convertor';
+// import convertor from './convertor';
 
 // POST 的四种数据格式 content-type
 // text/xml
@@ -21,7 +23,7 @@ const ContentType = {
   XML: 'text/xml; charset=utf-8',
   TEXT: 'text/plain; charset=utf-8',
   JSON: 'application/json; charset=utf-8',
-  FORMDATA: 'application/x-www-form-urlencoded'
+  FORMDATA: 'application/x-www-form-urlencoded;charset=utf-8'
 };
 
 // const charset = 'charset=utf-8';
@@ -59,30 +61,28 @@ function hasContentType( headers ) {
   return hasHeader( 'content-type' )( headers );
 }
 
-function encode( value ) {
-  return encodeURIComponent( value );
-}
+// function encode( value ) {
+//   return encodeURIComponent( value );
+// }
 
-function getQueryString( object ) {
-  return Object.keys( object ).reduce(( qs, item ) => {
-    return `${( qs || `${qs}&` ) + encode( item )}=${encode( object[item])}`;
-  }, '' );
-}
+// function getQueryString( object ) {
+//   return Object.keys( object ).reduce(( qs, item ) => {
+//     return `${( qs || `${qs}&` ) + encode( item )}=${encode( object[item])}`;
+//   }, '' );
+// }
 
-function objectToQueryString( data ) {
-  return is.PlainObject( data ) ? getQueryString( data ) : data;
-}
+// function objectToQueryString( data ) {
+//   return is.PlainObject( data ) ? getQueryString( data ) : data;
+// }
 
-function setHeaders( xhr, { headers, dataType, method }) {
-
-  const TYPE = dataType.toUpperCase();
+function setHeaders( xhr, { headers, dataType, contentType, method }) {
 
   if ( !hasAccept( headers )) {
-    headers.Accept = ACCEPT.DEFAULT;
+    headers.Accept = ACCEPT[dataType.toUpperCase()];
   }
 
   if ( !hasContentType( headers ) && method !== 'get' ) {
-    headers['Content-Type'] = ContentType.POST;
+    headers['Content-Type'] = ContentType[contentType.toUpperCase()];
   }
 
   Object.keys( headers ).forEach( name => {
@@ -92,45 +92,49 @@ function setHeaders( xhr, { headers, dataType, method }) {
   });
 }
 
-function getDataType( xhr ) {
-  const ct = xhr.getResponseHeader( 'Content-Type' );
-  if ( ct.indexOf( ContentType.JSON ) > -1 ) {
-    return 'json';
-  } else if ( ct.indexOf( ContentType.XML ) > -1 ) {
-    return 'xml';
-  }
-  return 'text';
-}
+// function getDataType( xhr ) {
+//   const ct = xhr.getResponseHeader( 'Content-Type' );
+//   if ( ct.indexOf( ContentType.JSON ) > -1 ) {
+//     return 'json';
+//   } else if ( ct.indexOf( ContentType.XML ) > -1 ) {
+//     return 'xml';
+//   }
+//   return 'text';
+// }
 
-function convertors( dataType ) {
-  return function( xhr, convertor ) {
-    if ( dataType ) {
-      return convertor( dataType, xhr.response );
+// arrayBuffur blob stream IE9 不支持
+function convertors({ dataType, responseType }) {
+  // '*', 'xml', 'html', --'script'--
+  return function( xhr/*, convertor*/ ) {
+    if ( dataType === 'default' ) {
+      return xhr.response || xhr.responseText;
+    } else if ( dataType === '*' ) {
+      // arrayBuffur blob stream | *
+      return responseType ? xhr.response : xhr.responseText;
+    } else if ([ 'xml', 'html' ].includes( dataType )) { // responseType === document
+      return xhr.responseXML || xhr.response;
+    } else if ([ 'json', 'text' ].includes( dataType )) {
+      return xhr.response || xhr.responseText;
     }
-    return convertor( getDataType( xhr ), xhr.response );
+    return xhr.response;
   };
 }
 
-function parseResponse( xhr, ctors, codePass ) {
+function validateResponse( xhr, ctors, validateStatus ) {
 
-  let success = codePass;
+  let success = validateStatus( xhr.status );
   let result = null;
   let error = null;
 
-  if (
-    typeof xhr.response === 'undefined' && (
-    typeof xhr.responseType === 'undefined' ||
-    xhr.responseType === '' ||
-    xhr.responseType === 'text' )
-  ) {
+  // 把结果都放在 response 上
+  if ( !xhr.response && ( !xhr.responseType || xhr.responseType === 'text' )) {
     xhr.response = xhr.responseText;
   }
 
-  if ( codePass ) {
+  if ( success ) {
     try {
-      if ( is.Function( ctors )) {
-        result = ctors( xhr, convertor );
-      } else if ( xhr.response === null ) {
+      result = ctors( xhr );
+      if ( result === null ) {
         success = false;
         error = 'parseerror';
       } else {
@@ -148,14 +152,14 @@ function parseResponse( xhr, ctors, codePass ) {
   };
 }
 
-function ready( xhr2, xdr, ctors, timeout, xhr ) {
+function ready( xhr2, xdr, timeout, xhr, options ) {
   return function handleReady( appendMethods ) {
       // 0 - (未初始化)还没有调用send()方法
       // 1 - (载入)已调用send()方法，正在发送请求
       // 2 - (载入完成)send()方法执行完成，
       // 3 - (交互)正在解析响应内容
       // 4 - (完成)响应内容解析完成，可以在客户端调用了
-    if ( xhr.readyState === xhr.DONE ) {
+    if ( xhr.readyState === 4 ) {
       if ( timeout ) {
         clearTimeout( timeout );
       }
@@ -167,8 +171,7 @@ function ready( xhr2, xdr, ctors, timeout, xhr ) {
       } else {
         xhr.onreadystatechange = null;
       }
-      const codePass = ( xhr.status >= 200 && xhr.status < 300 ) || xhr.status === 304;
-      const { success, result, error } = parseResponse( xhr, ctors, codePass );
+      const { success, result, error } = validateResponse( xhr, convertors( options ), options.validateStatus );
 
       if ( success ) {
         if ( appendMethods.then ) {
@@ -201,9 +204,9 @@ let getXhr;
 
 try {
   // test window
-  if ( is.Undefined( window )) {
-    throw Error( 'Hope: Ajax only for browser environment.' );
-  }
+  // if ( is.Undefined( window )) {
+  //   throw Error( 'Hope: Ajax only for browser environment.' );
+  // }
   getXhr = window.XMLHttpRequest
     ? () => new window.XMLHttpRequest()
     : () => new window.ActiveXObject( 'Microsoft.XMLHTTP' );
@@ -212,6 +215,7 @@ try {
   getXhr = () => {};
 }
 
+// XDomainRequest 是 IE8 9 上的跨域实现
 function fixXhr( xhr_, options ) {
 
   let xhr;
@@ -222,21 +226,17 @@ function fixXhr( xhr_, options ) {
     if ( !xhr2 && window.XDomainRequest ) {
       xhr = new window.XDomainRequest(); // CORS with IE8/9
       xdr = true;
-      if ( options.method !== 'get' && options.method !== 'post' ) {
-        options.method = 'post';
-      }
-      return [ xhr, xdr, xhr2 ];
+      options.method = options.data ? 'post' : 'get';
+      return { xhr, xdr, xhr2 };
     }
-    throw Error( 'Hope: CrossOrigin is not support.' );
+    throw Error( 'CrossOrigin is not support.' );
   }
-  return [ xhr_, xdr, xhr2 ];
+  return { xhr: xhr_, xdr, xhr2 };
 }
 
 
-function xhrConnection( method, url, data, options ) {
+function connection( method, url, data, options ) {
 
-  let nativeParsing;
-  let queryString = '';
   const appendMethods = {};
   const returnMethods = [ 'then', 'catch', 'finally' ];
   const promiseMethods = returnMethods.reduce(( promise, method ) => {
@@ -249,24 +249,29 @@ function xhrConnection( method, url, data, options ) {
     return promise;
   }, {});
 
-  const [ xhr, xdr, xhr2 ] = fixXhr( getXhr(), options );
+  let { xhr, xdr, xhr2 } = fixXhr( getXhr(), options );
 
-  if ( method === 'get' && data ) {
-    queryString = `?${objectToQueryString( data )}`;
-  }
+  // if ( method === 'get' && data ) {
+  //   queryString = `?${objectToQueryString( data )}`;
+  // }
 
   if ( xdr ) {
-    xhr.open( method, url + queryString );
+    xhr.open( method.toUpperCase(), buildURL( url, data, options.paramsSerializer ));
   } else {
-    xhr.open( method, url + queryString, options.async, options.user, options.password );
+    xhr.open( method.toUpperCase(), buildURL( url, data, options.paramsSerializer ), options.async, options.user, options.password );
   }
 
-  // withCredentials cross domain
+  // withCredentials crossdomain
+  // 当xhr为同步请求时，有如下限制：
+  // xhr.timeout必须为0
+  // xhr.withCredentials必须为 false
+  // xhr.responseType必须为""（注意置为"text"也不允许）
   if ( xhr2 ) {
-    xhr.withCredentials = !!( options.async || options.withCredentials );
+    xhr.withCredentials = options.withCredentials;
   }
 
   // headers
+  // setRequestHeader必须在open()方法之后，send()方法之前调用，否则会抛错
   if ( 'setRequestHeader' in xhr ) {
     setHeaders( xhr, options );
   }
@@ -278,29 +283,27 @@ function xhrConnection( method, url, data, options ) {
     xhr.statusText_ = 'timeout';
     ( options.ontimeout || handleOntimeout )();
   };
-  if ( options.async ) {
-    if ( xhr2 ) {
-      xhr.timeout = options.timeout;
-      xhr.ontimeout = ontimeout;
-    } else {
-      timeout = setTimeout( handleTimeout( xhr, ontimeout ), options.timeout );
-    }
-  } else if ( xdr ) {
-    xhr.ontimeout = function() {};
+  if ( xhr2 ) {
+    xhr.timeout = options.timeout;
+    xhr.ontimeout = ontimeout;
+  } else {
+    timeout = setTimeout( handleTimeout( xhr, ontimeout ), options.timeout );
   }
 
   if ( xhr2 ) {
     try {
-      xhr.responseType = options.dataType;
-      nativeParsing = xhr2 && ( xhr.responseType === options.dataType );
-    } catch ( e ) {} // eslint-disable-line
+      if ( options.responseType ) {
+        xhr.responseType = options.responseType;
+      }
+    } catch ( e ) { /* Ignore */ }
   } else if ( 'overrideMimeType' in xhr ) {
-    xhr.overrideMimeType( ContentType[options.dataType.toUpperCase()]);
+    xhr.overrideMimeType( ContentType[options.contentType.toUpperCase()]);
   }
 
-  const ctors = nativeParsing || convertors( options.dataType );
+  // '*', 'xml', 'html', 'script'
+  // const ctors = convertors( options );
   const handleResponse = () => ready(
-    xhr2, xdr, ctors, timeout, xhr
+    xhr2, xdr, timeout, xhr, options
   )( appendMethods );
   handleOntimeout = handleResponse;
 
@@ -318,7 +321,14 @@ function xhrConnection( method, url, data, options ) {
     xhr.onreadystatechange = handleResponse;
   }
 
-  xhr.send( method !== 'get' ? objectToQueryString( data ) : null );
+  if ( xhr2 ) {
+    xhr.addEventListener( 'progress', options.onDownloadProgress );
+    if ( xhr2 && xhr.upload ) {
+      xhr.upload.addEventListener( 'progress', options.onUploadProgress );
+    }
+  }
+
+  xhr.send( is.Defined( data ) ? options.paramsSerializer( data ) : null );
   promiseMethods.abort = function() {
     if ( !xhr.aborted ) {
       if ( timeout ) {
@@ -328,6 +338,14 @@ function xhrConnection( method, url, data, options ) {
       xhr.abort();
     }
   };
+
+  if ( options.signal ) {
+    options.signal.onabort = () => {
+      promiseMethods.abort();
+    };
+    xhr = null;
+  }
+
   return promiseMethods;
 }
 
@@ -343,11 +361,12 @@ function xhrConnection( method, url, data, options ) {
  *   url: string,
  *   withCredentials: boolean
  *   crossDomain: boolean,
- *   // async: boolean,
  *   user: string,
  *   password: string,
  *   dataType: string,
- *   cache: string
+ *   responseType: string,
+ *   cache: string,
+ *   contentType: string
  * }
  */
 
@@ -362,13 +381,34 @@ const defaultOption = {
   url: '',
   withCredentials: false,
   crossDomain: false,
-  // async: true,
   user: '',
   password: '',
-  dataType: 'json', // jsonp text domstring json xml arraybuffer blob document html script
-  responseType: undefined, // 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
+  dataType: 'default', // '*' 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
+                    // xml html --script--
+                    // domstring 同 text
   contentType: '',
-  cache: false
+  // responseType;
+  cache: 'default', // default 不设置头信息
+                    // no-store 、 reload 、 no-cache 、 force-cache 或者 only-if-cached
+  signal: null,
+  validateStatus( status ) {
+    return status >= 200 && status < 300; // default
+  },
+  transformResponse: [( data, headers_ ) => {
+    return data;
+  }],
+  transformRequest: [( data ) => {
+    return data;
+  }],
+  paramsSerializer( params ) {
+    return qs.stringify( params, { arrayFormat: 'brackets' });
+  },
+  onUploadProgress( progressEvent ) {
+    // Do whatever you want with the native progress event
+  },
+  onDownloadProgress( progressEvent ) {
+    // Do whatever you want with the native progress event
+  }
 };
 
 function getOption({
@@ -384,13 +424,23 @@ function getOption({
   user,
   password,
   dataType, // 类似 responseType, 相同优先 responseType
-  responseType,
   contentType,
-  cache
+  cache,
+  signal,
+  validateStatus,
+  transformResponse,
+  transformRequest,
+  paramsSerializer,
+  onUploadProgress,
+  onDownloadProgress
 }) {
 
   const options = Object.assign({}, defaultOption );
   options.headers = Object.assign({}, options.headers );
+
+  if ( is.String( method ) && method ) {
+    options.method = method.toLowerCase();
+  }
 
   if ( is.PlainObject( headers )) {
     Object.assign( options.headers, headers );
@@ -412,8 +462,10 @@ function getOption({
     options.url = url;
   }
 
+  // 跨域带cookie
   options.withCredentials = !!withCredentials;
 
+  // 跨域
   options.crossDomain = !!crossDomain;
   if ( !options.crossDomain && options.headers['X-Requested-With'] === 'XMLHttpRequest' ) {
     delete options.headers['X-Requested-With'];
@@ -426,31 +478,36 @@ function getOption({
     }
   }
 
-  if ([ 'xml', 'json', 'text', 'html', 'script' ].includes( dataType.toLowerCase())) {
+  // 设置 accept
+  if ( !is.String( dataType )) {
+    // options.dataType = '';
+  } else if ([ '*', 'xml', 'json', 'text', 'html'/*, 'script'*/ ].includes( dataType.toLowerCase())) {
     options.dataType = dataType;
+  } else if ( dataType.toLowerCase() === 'document' ) {
+    options.dataType = 'html';
+  } else if ([ 'arraybuffer', 'blob', 'stream' ].includes( dataType.toLowerCase())) {
+    options.dataType = '*';
   }
 
-  // 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
-  // if ( 'ArrayBuffer' in window && data instanceof ArrayBuffer ) {
-  //   options.dataType = 'arraybuffer';
-  // } else if ( 'Blob' in window && data instanceof Blob ) {
-  //   options.dataType = 'blob';
-  // } else if ( 'Document' in window && data instanceof Document ) {
-  //   options.dataType = 'document';
-  // } else if ( 'FormData' in window && data instanceof FormData ) {
-  //   options.dataType = 'json';
-  // }
-
+  // 设置接收数据的格式
   // arraybuffer blob document stream 返回值可能需要相应的处理
   // json 将字符串自动转换成对象 xhr2不用手动转换
   // text 不处理接受的数据
-  if ([ 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream' ].includes( responseType.toLowerCase())) {
-    options.responseType = responseType;
+  if ( !is.String( dataType )) {
+    // options.responseType = dataType;
+  } else if ([ 'xml', 'html' ].includes( dataType.toLowerCase())) {
+    options.responseType = 'document';
+  } else if ([ 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream' ].includes( dataType.toLowerCase())) {
+    options.responseType = dataType;
   }
 
+  // 设置 content-type
   // formdata xml text 不处理数据, data 应该是字符串或 formdata 对象
   // json 转换成字符串发送, data 是普通对象
-  if ([ 'xml', 'json', 'text', 'formdata' ].includes( contentType.toLowerCase())) {
+  // 如果data是 Document 类型，同时也是HTML Document类型，则content-type默认值为text/html;charset=UTF-8;否则为application/xml;charset=UTF-8；
+  // 如果data是 DOMString 类型，content-type默认值为text/plain;charset=UTF-8；
+  // 如果data是 FormData 类型，content-type默认值为multipart/form-data; boundary=[xxx]
+  if ( options.method !== 'get' && [ 'xml', 'json', 'text', 'formdata' ].includes( contentType.toLowerCase())) {
     options.contentType = contentType;
   }
 
@@ -458,10 +515,6 @@ function getOption({
   if ( data ) {
     // options.data = is.PlainObject( data ) ? Object.assign({}, data ) : data;
     options.data = data;
-  }
-
-  if ( is.String( method ) && method ) {
-    options.method = method;
   }
 
   if ( is.Object( headers )) {
@@ -472,16 +525,50 @@ function getOption({
     //   options.headers['Cache-Control'] = 'no-cache';
     //   options.headers['Pragma'] = 'no-cache';
     // }
-    if ( !cache ) {
-      options.headers['Cache-Control'] = 'no-store';
+    if ( cache && cache !== 'default' ) {
+      options.headers['Cache-Control'] = cache;
+      // 为了兼容 HTTP1.0
+      if ( cache === 'no-cache' ) {
+        options.headers['Pragma'] = 'no-cache';
+      }
     }
+    options.cache = cache || options.cache;
   }
 
+  // 只考虑异步情况
   options.async = true;
+
+  if ( signal ) {
+    options.signal = signal;
+  }
+
+  if ( is.Function( validateStatus )) {
+    options.validateStatus = validateStatus;
+  }
+
+  if ( is.Array( transformResponse )) {
+    options.transformResponse = transformResponse;
+  }
+
+  if ( is.Array( transformRequest )) {
+    options.transformRequest = transformRequest;
+  }
+
+  if ( is.Function( paramsSerializer )) {
+    options.paramsSerializer = paramsSerializer;
+  }
+
+  if ( is.Function( onUploadProgress )) {
+    options.onUploadProgress = onUploadProgress;
+  }
+
+  if ( is.Function( onDownloadProgress )) {
+    options.onDownloadProgress = onDownloadProgress;
+  }
 
   invariant(
     options.url || options.baseUrl,
-    'Hope: One of Url and BaseUrl must be a non-empty string.'
+    'Url or BaseUrl must be a non-empty string.'
   );
 
   return options;
@@ -489,7 +576,7 @@ function getOption({
 
 
 function ajax( options ) {
-  return xhrConnection(
+  return connection(
     options.method,
     options.baseUrl + options.url,
     options.data,
