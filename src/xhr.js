@@ -35,7 +35,7 @@ const ACCEPT = {
   TEXT: 'text/plain; q=1.0, text/*; q=0.8, */*; q=0.1',
   XML: 'application/xml; q=1.0, text/xml; q=0.8, */*; q=0.1',
   JSON: 'application/json; q=1.0, text/*; q=0.8, */*; q=0.1',
-  SCRIPT: 'application/javascript; q=1.0, text/javascript; q=1.0, application/ecmascript; q=0.8, application/x-ecmascript; q=0.8, */*; q=0.1',
+  // SCRIPT: 'application/javascript; q=1.0, text/javascript; q=1.0, application/ecmascript; q=0.8, application/x-ecmascript; q=0.8, */*; q=0.1',
   DEFAULT: 'application/json; q=1.0, text/plain; q=0.8, */*; q=0.1'
 };
 
@@ -254,11 +254,14 @@ function connection( method, url, data, options ) {
   // if ( method === 'get' && data ) {
   //   queryString = `?${objectToQueryString( data )}`;
   // }
+  const reqURL = method === 'get'
+    ? buildURL( url, data, options.paramsSerializer )
+    : url;
 
   if ( xdr ) {
-    xhr.open( method.toUpperCase(), buildURL( url, data, options.paramsSerializer ));
+    xhr.open( method.toUpperCase(), reqURL );
   } else {
-    xhr.open( method.toUpperCase(), buildURL( url, data, options.paramsSerializer ), options.async, options.user, options.password );
+    xhr.open( method.toUpperCase(), reqURL, options.async, options.user, options.password );
   }
 
   // withCredentials crossdomain
@@ -328,7 +331,18 @@ function connection( method, url, data, options ) {
     }
   }
 
-  xhr.send( is.Defined( data ) ? options.paramsSerializer( data ) : null );
+  if ( options.contentType === 'formdata' && is.PlainObject( data )) {
+    xhr.send( options.paramsSerializer( data ));
+  } else if ( options.contentType === 'formdata' ) {
+    xhr.send( data || null );
+  } else if ( options.contentType === 'json' && is.PlainObject( data )) {
+    xhr.send( JSON.stringify( data ));
+  } else if ( options.contentType === 'json' ) {
+    xhr.send( data || null );
+  } else {
+    xhr.send( data || null );
+  }
+
   promiseMethods.abort = function() {
     if ( !xhr.aborted ) {
       if ( timeout ) {
@@ -386,7 +400,7 @@ const defaultOption = {
   dataType: 'default', // '*' 'arraybuffer', 'blob', 'document', 'json', 'text', 'stream'
                     // xml html --script--
                     // domstring 同 text
-  contentType: '',
+  contentType: 'formdata', // 'xml', 'json', 'text', 'formdata'
   // responseType;
   cache: 'default', // default 不设置头信息
                     // no-store 、 reload 、 no-cache 、 force-cache 或者 only-if-cached
@@ -403,10 +417,10 @@ const defaultOption = {
   paramsSerializer( params ) {
     return qs.stringify( params, { arrayFormat: 'brackets' });
   },
-  onUploadProgress( progressEvent ) {
+  onUploadProgress( progressEvent_ ) {
     // Do whatever you want with the native progress event
   },
-  onDownloadProgress( progressEvent ) {
+  onDownloadProgress( progressEvent_ ) {
     // Do whatever you want with the native progress event
   }
 };
@@ -507,7 +521,9 @@ function getOption({
   // 如果data是 Document 类型，同时也是HTML Document类型，则content-type默认值为text/html;charset=UTF-8;否则为application/xml;charset=UTF-8；
   // 如果data是 DOMString 类型，content-type默认值为text/plain;charset=UTF-8；
   // 如果data是 FormData 类型，content-type默认值为multipart/form-data; boundary=[xxx]
-  if ( options.method !== 'get' && [ 'xml', 'json', 'text', 'formdata' ].includes( contentType.toLowerCase())) {
+  if ( !is.String( contentType )) {
+    /* ignore */
+  } else if ( options.method !== 'get' && [ 'xml', 'json', 'text', 'formdata' ].includes( contentType.toLowerCase())) {
     options.contentType = contentType;
   }
 

@@ -24,7 +24,7 @@ function isURLSearchParams( val ) {
  * @param {object} [params] The params to be appended
  * @returns {string} The formatted url
  */
-module.exports = function buildURL( url, params, paramsSerializer ) {
+export default function buildURL( url, params, paramsSerializer ) {
   /*eslint no-param-reassign:0*/
   if ( !params ) {
     return url;
@@ -72,4 +72,4 @@ module.exports = function buildURL( url, params, paramsSerializer ) {
   }
 
   return url;
-};
+}

@@ -1,28 +1,35 @@
 
 
+import is from 'whatitis';
 import pick from 'object.pick';
 import invariant from 'invariant';
-import is, { property } from 'whatitis';
 import ajaxXhr from './xhr';
 import compose from './compose';
 
 
-const isDev = process && process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === 'development';
 
 function log( level, message, error = '' ) {
   if ( isDev ) {
     /* eslint-disable no-console */
     if ( typeof window === 'undefined' ) {
-      console.log( `Hope: ${message}\n${( error && error.stack ) || error}` );
+      console.log( ` ${message}\n${( error && error.stack ) || error}` );
     } else {
       console[level]( ...[message].concat( error ? [ '\n', error ] : []));
     }
   }
 }
 
+function property( propertyName ) {
+  return function( obj ) {
+    return obj[propertyName];
+  };
+}
+
 const ajaxSymbol = Symbol( 'ajax' );
 const ajaxHandler = Symbol( 'ajaxHandler' );
 const isAjax = property( ajaxSymbol );
+const methods = [ 'ajax', 'get', 'post', 'put', 'delete', 'head', 'options', 'patch', 'trace' ];
 const globalMap = {
 
 
@@ -36,6 +43,20 @@ const globalMap = {
 
   urls: {},
   tokens: new Map(),
+  globalOptions: {},
+
+  mergeOptions( ...options ) {
+    return options.reduce(( lastOption, option ) => {
+      const objectKeys = Object.keys( lastOption ).filter(( key ) => is.PlainObject( lastOption[key]));
+      objectKeys.forEach(( key ) => {
+        const obj = option[key];
+        if ( is.PlainObject( obj )) {
+          option[key] = globalMap.mergeOptions( lastOption[key], obj );
+        }
+      });
+      return Object.assign( lastOption, option );
+    }, {});
+  },
 
   setURLTokens( pairs ) {
     const tokens = globalMap.tokens;
@@ -85,6 +106,10 @@ const globalMap = {
 
   assert( type_, response, resolve_, reject_ ) {
     resolve_( response );
+  },
+
+  setGlobalOptions( options ) {
+    globalMap.globalOptions = globalMap.mergeOptions( globalMap.globalOptions, options );
   }
 
 };
@@ -256,7 +281,7 @@ function Ajax( url, options ) {
   // create new chain of ajax
   function newAjax( options ) {
     let abort;
-    const chain = Promise.of(( resolve, reject ) => {
+    const chain = new Promise(( resolve, reject ) => {
       const callback = allocator( resolve, reject, options );
       abort = ajaxXhr( options )
         .then( callback( true ))
@@ -304,8 +329,7 @@ function Ajax( url, options ) {
 
   function append( funcName, ...args ) {
     const prev = next;
-    const needLastResults = [ 'ajax', 'get', 'post', 'put', 'delete', 'then',
-      'always', 'finally' ].includes( funcName );
+    const needLastResults = [ ...methods, 'then', 'always', 'finally' ].includes( funcName );
     const nextArgs = args.length === 1 && is.Function( args[0]) && needLastResults
       ? ( result ) => [args[0].bind( undefined, ...result )]
       : () => args;
@@ -327,7 +351,7 @@ function Ajax( url, options ) {
         const ajax = options();
         invariant(
           isAjax( ajax ),
-          'Hope: Function of ajax() expecting a ajax-object be returned.'
+          'Function of ajax() expecting a ajax-object be returned.'
         );
         ajaxObject = ajax.getXhr()[0].always(() => remove( ajaxObject ));
       } else {
@@ -342,7 +366,7 @@ function Ajax( url, options ) {
   function getNext( ajaxObject ) {
     invariant(
       isAjax( ajaxObject ),
-      'Hope: Function of ajax() expecting a ajax-object be returned.'
+      'Function of ajax() expecting a ajax-object be returned.'
     );
     getNextXhrs = ajaxObject.getXhr;
   }
@@ -371,23 +395,23 @@ function Ajax( url, options ) {
       }
     }).catch(( err ) => {
       if ( handlerCatch ) {
-        handlerCatch( err.length === 1 ? err[0] : err );
+        handlerCatch( err );
       }
-    }).then(( ...results ) => {
+    }).then(() => {
       if ( handlerFinally ) {
-        handlerFinally( ...results );
+        handlerFinally();
       }
     });
   }
 
 
   // ajax methods
-  [ 'ajax', 'get', 'post', 'put', 'delete' ].forEach( method => {
+  methods.forEach( method => {
     chainMethod[method] = compose( options => {
       if ( createAjax( options, method === 'ajax' ? options.method : method )) {
         return chainMethod;
       }
-      return pick( chainMethod, [ 'ajax', 'get', 'post', 'put', 'delete' ]);
+      return pick( chainMethod, methods );
     }, getOptions ); /* ( url, options ) */
   });
 
@@ -405,27 +429,26 @@ function Ajax( url, options ) {
   });
 
   // if next ajax is exist, all function will append to the next ajax
-  [ 'ajax', 'get', 'post', 'put', 'delete', 'before', 'then', 'catch',
-    'always', 'finally' ].forEach( func => {
-      const body = chainMethod[func];
-      chainMethod[func] = function( ...args ) {
-        if ( next ) {
-          append( func, ...args );
-          return chainMethod;
-        }
-        return body( ...args );
-      };
-    });
+  [ ...methods, 'before', 'then', 'catch', 'always', 'finally' ].forEach( func => {
+    const body = chainMethod[func];
+    chainMethod[func] = function( ...args ) {
+      if ( next ) {
+        append( func, ...args );
+        return chainMethod;
+      }
+      return body( ...args );
+    };
+  });
 
 
   // success === done === then && error === fail === catch
-  chainMethod.success =
-  chainMethod.done = chainMethod.then;
-  chainMethod.error =
-  chainMethod.fail = chainMethod.catch;
+  // chainMethod.success =
+  // chainMethod.done = chainMethod.then;
+  // chainMethod.error =
+  // chainMethod.fail = chainMethod.catch;
 
   // init
-  return chainMethod.ajax( url, options );
+  return chainMethod.ajax( url, globalMap.mergeOptions( globalMap.globalOptions, options ));
 }
 
 
@@ -433,7 +456,9 @@ Object.assign( Ajax, pick( globalMap, [
   'setURLTokens',
   'setURLAlias',
   'setDataTransform',
-  'setAssert'
+  'setAssert',
+  'setGlobalOptions',
+  'mergeOptions'
 ]), {
   getURL: URLFormat
 });

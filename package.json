@@ -1,7 +1,7 @@
 {
-  "name": "Fejax",
+  "name": "fejax",
   "version": "0.0.1",
-  "description": "Fetch like Ajax",
+  "description": "Fetch @ Ajax",
   "repository": "https://github.com/jokemmy/fejax.git",
   "keywords": [
     "fejax"
@@ -10,11 +10,11 @@
   "module": "es/index.js",
   "jsnext:main": "es/index.js",
   "authors": [
-    "ZhenyuXu <25213322@qq.com> (https://github.com/Syzmex)"
+    "ZhenyuXu <25213322@qq.com> (https://github.com/jokemmy)"
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Syzmex/fejax/issues"
+    "url": "https://github.com/jokemmy/fejax/issues"
   },
   "files": [
     "dist",

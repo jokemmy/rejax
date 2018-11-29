@@ -4,14 +4,13 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
+import is from 'whatitis';
 import pick from 'object.pick';
 import invariant from 'invariant';
-import is, { property } from 'whatitis';
 import ajaxXhr from './xhr';
 import compose from './compose';
-import Chain from './chain';
 
-var isDev = process && process.env.NODE_ENV === 'development';
+var isDev = process.env.NODE_ENV === 'development';
 
 function log(level, message) {
   var error = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
@@ -19,7 +18,7 @@ function log(level, message) {
   if (isDev) {
     /* eslint-disable no-console */
     if (typeof window === 'undefined') {
-      console.log('Hope: ' + message + '\n' + (error && error.stack || error));
+      console.log(' ' + message + '\n' + (error && error.stack || error));
     } else {
       var _console;
 
@@ -28,9 +27,16 @@ function log(level, message) {
   }
 }
 
+function property(propertyName) {
+  return function (obj) {
+    return obj[propertyName];
+  };
+}
+
 var ajaxSymbol = Symbol('ajax');
 var ajaxHandler = Symbol('ajaxHandler');
 var isAjax = property(ajaxSymbol);
+var methods = ['ajax', 'get', 'post', 'put', 'delete', 'head', 'options', 'patch', 'trace'];
 var globalMap = {
 
   // converters: {
@@ -43,7 +49,26 @@ var globalMap = {
 
   urls: {},
   tokens: new Map(),
+  globalOptions: {},
 
+  mergeOptions: function mergeOptions() {
+    for (var _len = arguments.length, options = Array(_len), _key = 0; _key < _len; _key++) {
+      options[_key] = arguments[_key];
+    }
+
+    return options.reduce(function (lastOption, option) {
+      var objectKeys = Object.keys(lastOption).filter(function (key) {
+        return is.PlainObject(lastOption[key]);
+      });
+      objectKeys.forEach(function (key) {
+        var obj = option[key];
+        if (is.PlainObject(obj)) {
+          option[key] = globalMap.mergeOptions(lastOption[key], obj);
+        }
+      });
+      return Object.assign(lastOption, option);
+    }, {});
+  },
   setURLTokens: function setURLTokens(pairs) {
     var tokens = globalMap.tokens;
     Object.entries(pairs).forEach(function (_ref) {
@@ -98,6 +123,9 @@ var globalMap = {
   },
   assert: function assert(type_, response, resolve_, reject_) {
     resolve_(response);
+  },
+  setGlobalOptions: function setGlobalOptions(options) {
+    globalMap.globalOptions = globalMap.mergeOptions(globalMap.globalOptions, options);
   }
 };
 
@@ -145,8 +173,8 @@ function getMethod(_ref7) {
 }
 
 function assignOption(obj) {
-  for (var _len = arguments.length, objs = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-    objs[_key - 1] = arguments[_key];
+  for (var _len2 = arguments.length, objs = Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
+    objs[_key2 - 1] = arguments[_key2];
   }
 
   var newObj = Object.assign.apply(Object, [obj].concat(objs));
@@ -242,8 +270,8 @@ function Ajax(url, options) {
     handlerCatch = handlerCatch ? composeWithResult(callback, handlerCatch) : callback;
   }), _defineProperty(_chainMethod, 'always', function always(callback) {
     chainMethod.then(function () {
-      for (var _len2 = arguments.length, results = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-        results[_key2] = arguments[_key2];
+      for (var _len3 = arguments.length, results = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
+        results[_key3] = arguments[_key3];
       }
 
       return callback(null, results);
@@ -270,7 +298,7 @@ function Ajax(url, options) {
   // create new chain of ajax
   function newAjax(options) {
     var abort = void 0;
-    var chain = Chain.of(function (resolve, reject) {
+    var chain = new Promise(function (resolve, reject) {
       var callback = allocator(resolve, reject, options);
       abort = ajaxXhr(options).then(callback(true))['catch'](callback(false)).abort;
     });
@@ -288,25 +316,25 @@ function Ajax(url, options) {
       } else {
         var finallys = handlerFinally;
         next = ajaxHandler ? function () {
-          for (var _len3 = arguments.length, result = Array(_len3), _key3 = 0; _key3 < _len3; _key3++) {
-            result[_key3] = arguments[_key3];
+          for (var _len4 = arguments.length, result = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
+            result[_key4] = arguments[_key4];
           }
 
           return ajaxHandler.apply(undefined, result)['finally'](function () {
-            for (var _len4 = arguments.length, rs = Array(_len4), _key4 = 0; _key4 < _len4; _key4++) {
-              rs[_key4] = arguments[_key4];
+            for (var _len5 = arguments.length, rs = Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
+              rs[_key5] = arguments[_key5];
             }
 
             return finallys.apply(undefined, result.concat(rs));
           });
         } : function () {
-          for (var _len5 = arguments.length, result = Array(_len5), _key5 = 0; _key5 < _len5; _key5++) {
-            result[_key5] = arguments[_key5];
+          for (var _len6 = arguments.length, result = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
+            result[_key6] = arguments[_key6];
           }
 
           return Ajax(options)['finally'](function () {
-            for (var _len6 = arguments.length, rs = Array(_len6), _key6 = 0; _key6 < _len6; _key6++) {
-              rs[_key6] = arguments[_key6];
+            for (var _len7 = arguments.length, rs = Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+              rs[_key7] = arguments[_key7];
             }
 
             return finallys.apply(undefined, result.concat(rs));
@@ -331,12 +359,12 @@ function Ajax(url, options) {
   }
 
   function append(funcName) {
-    for (var _len7 = arguments.length, args = Array(_len7 > 1 ? _len7 - 1 : 0), _key7 = 1; _key7 < _len7; _key7++) {
-      args[_key7 - 1] = arguments[_key7];
+    for (var _len8 = arguments.length, args = Array(_len8 > 1 ? _len8 - 1 : 0), _key8 = 1; _key8 < _len8; _key8++) {
+      args[_key8 - 1] = arguments[_key8];
     }
 
     var prev = next;
-    var needLastResults = ['ajax', 'get', 'post', 'put', 'delete', 'then', 'always', 'finally'].includes(funcName);
+    var needLastResults = [].concat(methods, ['then', 'always', 'finally']).includes(funcName);
     var nextArgs = args.length === 1 && is.Function(args[0]) && needLastResults ? function (result) {
       var _args$;
 
@@ -347,8 +375,8 @@ function Ajax(url, options) {
     next = function next() {
       var _prev;
 
-      for (var _len8 = arguments.length, result = Array(_len8), _key8 = 0; _key8 < _len8; _key8++) {
-        result[_key8] = arguments[_key8];
+      for (var _len9 = arguments.length, result = Array(_len9), _key9 = 0; _key9 < _len9; _key9++) {
+        result[_key9] = arguments[_key9];
       }
 
       return (_prev = prev.apply(undefined, result))[funcName].apply(_prev, _toConsumableArray(nextArgs(result)));
@@ -364,7 +392,7 @@ function Ajax(url, options) {
       var ajaxObject = void 0;
       if (is.Function(options)) {
         var ajax = options();
-        invariant(isAjax(ajax), 'Hope: Function of ajax() expecting a ajax-object be returned.');
+        invariant(isAjax(ajax), 'Function of ajax() expecting a ajax-object be returned.');
         ajaxObject = ajax.getXhr()[0].always(function () {
           return remove(ajaxObject);
         });
@@ -379,7 +407,7 @@ function Ajax(url, options) {
   }
 
   function getNext(ajaxObject) {
-    invariant(isAjax(ajaxObject), 'Hope: Function of ajax() expecting a ajax-object be returned.');
+    invariant(isAjax(ajaxObject), 'Function of ajax() expecting a ajax-object be returned.');
     getNextXhrs = ajaxObject.getXhr;
   }
 
@@ -392,7 +420,7 @@ function Ajax(url, options) {
       handlerBefore.apply(undefined, _toConsumableArray(xhrs));
     }
 
-    sending = Chain.all(xhrs).then(function () {
+    sending = Promise.all(xhrs).then(function () {
       var result = void 0;
       if (handlerThen) {
         result = handlerThen.apply(undefined, arguments);
@@ -406,22 +434,22 @@ function Ajax(url, options) {
       }
     })['catch'](function (err) {
       if (handlerCatch) {
-        handlerCatch(err.length === 1 ? err[0] : err);
+        handlerCatch(err);
       }
     }).then(function () {
       if (handlerFinally) {
-        handlerFinally.apply(undefined, arguments);
+        handlerFinally();
       }
     });
   }
 
   // ajax methods
-  ['ajax', 'get', 'post', 'put', 'delete'].forEach(function (method) {
+  methods.forEach(function (method) {
     chainMethod[method] = compose(function (options) {
       if (createAjax(options, method === 'ajax' ? options.method : method)) {
         return chainMethod;
       }
-      return pick(chainMethod, ['ajax', 'get', 'post', 'put', 'delete']);
+      return pick(chainMethod, methods);
     }, getOptions); /* ( url, options ) */
   });
 
@@ -438,11 +466,11 @@ function Ajax(url, options) {
   });
 
   // if next ajax is exist, all function will append to the next ajax
-  ['ajax', 'get', 'post', 'put', 'delete', 'before', 'then', 'catch', 'always', 'finally'].forEach(function (func) {
+  [].concat(methods, ['before', 'then', 'catch', 'always', 'finally']).forEach(function (func) {
     var body = chainMethod[func];
     chainMethod[func] = function () {
-      for (var _len9 = arguments.length, args = Array(_len9), _key9 = 0; _key9 < _len9; _key9++) {
-        args[_key9] = arguments[_key9];
+      for (var _len10 = arguments.length, args = Array(_len10), _key10 = 0; _key10 < _len10; _key10++) {
+        args[_key10] = arguments[_key10];
       }
 
       if (next) {
@@ -454,14 +482,16 @@ function Ajax(url, options) {
   });
 
   // success === done === then && error === fail === catch
-  chainMethod.success = chainMethod.done = chainMethod.then;
-  chainMethod.error = chainMethod.fail = chainMethod['catch'];
+  // chainMethod.success =
+  // chainMethod.done = chainMethod.then;
+  // chainMethod.error =
+  // chainMethod.fail = chainMethod.catch;
 
   // init
-  return chainMethod.ajax(url, options);
+  return chainMethod.ajax(url, globalMap.mergeOptions(globalMap.globalOptions, options));
 }
 
-Object.assign(Ajax, pick(globalMap, ['setURLTokens', 'setURLAlias', 'setDataTransform', 'setAssert']), {
+Object.assign(Ajax, pick(globalMap, ['setURLTokens', 'setURLAlias', 'setDataTransform', 'setAssert', 'setGlobalOptions', 'mergeOptions']), {
   getURL: URLFormat
 });
 
