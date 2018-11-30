@@ -3,9 +3,8 @@
 import qs from 'qs';
 import is from 'whatitis';
 import invariant from 'invariant';
-import buildURL from './buildURL';
 import compose from './compose';
-// import convertor from './convertor';
+import toURL from './toURL';
 
 // POST 的四种数据格式 content-type
 // text/xml
@@ -23,7 +22,7 @@ const ContentType = {
   XML: 'text/xml; charset=utf-8',
   TEXT: 'text/plain; charset=utf-8',
   JSON: 'application/json; charset=utf-8',
-  FORMDATA: 'application/x-www-form-urlencoded;charset=utf-8'
+  FORMDATA: 'application/x-www-form-urlencoded; charset=utf-8'
 };
 
 // const charset = 'charset=utf-8';
@@ -255,7 +254,7 @@ function connection( method, url, data, options ) {
   //   queryString = `?${objectToQueryString( data )}`;
   // }
   const reqURL = method === 'get'
-    ? buildURL( url, data, options.paramsSerializer )
+    ? toURL( url, data, options.paramsSerializer )
     : url;
 
   if ( xdr ) {

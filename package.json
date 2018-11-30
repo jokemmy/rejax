@@ -1,10 +1,11 @@
 {
   "name": "fejax",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Fetch @ Ajax",
   "repository": "https://github.com/jokemmy/fejax.git",
   "keywords": [
-    "fejax"
+    "fejax",
+    "ajax"
   ],
   "main": "lib/index.js",
   "module": "es/index.js",

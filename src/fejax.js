@@ -353,9 +353,9 @@ function Ajax( url, options ) {
           isAjax( ajax ),
           'Function of ajax() expecting a ajax-object be returned.'
         );
-        ajaxObject = ajax.getXhr()[0].always(() => remove( ajaxObject ));
+        ajaxObject = ajax.getXhr()[0].then(() => remove( ajaxObject )).catch(() => remove( ajaxObject ));
       } else {
-        ajaxObject = newAjax( options ).always(() => remove( ajaxObject ));
+        ajaxObject = newAjax( options ).then(() => remove( ajaxObject )).catch(() => remove( ajaxObject ));
       }
       xhrs.push( ajaxObject );
       return xhrs;
