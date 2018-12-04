@@ -3,6 +3,7 @@
 import is from 'whatitis';
 import pick from 'object.pick';
 import invariant from 'invariant';
+import Promisynch from 'promisynch';
 import ajaxXhr from './xhr';
 import compose from './compose';
 
@@ -281,7 +282,7 @@ function Ajax( url, options ) {
   // create new chain of ajax
   function newAjax( options ) {
     let abort;
-    const chain = new Promise(( resolve, reject ) => {
+    const chain = Promisynch.of(( resolve, reject ) => {
       const callback = allocator( resolve, reject, options );
       abort = ajaxXhr( options )
         .then( callback( true ))
@@ -353,9 +354,9 @@ function Ajax( url, options ) {
           isAjax( ajax ),
           'Function of ajax() expecting a ajax-object be returned.'
         );
-        ajaxObject = ajax.getXhr()[0].then(() => remove( ajaxObject )).catch(() => remove( ajaxObject ));
+        ajaxObject = ajax.getXhr()[0].finally(() => remove( ajaxObject ));
       } else {
-        ajaxObject = newAjax( options ).then(() => remove( ajaxObject )).catch(() => remove( ajaxObject ));
+        ajaxObject = newAjax( options ).finally(() => remove( ajaxObject ));
       }
       xhrs.push( ajaxObject );
       return xhrs;
@@ -381,7 +382,7 @@ function Ajax( url, options ) {
       handlerBefore( ...xhrs );
     }
 
-    sending = Promise.all( xhrs ).then(( ...results ) => {
+    sending = Promisynch.all( xhrs ).then(( ...results ) => {
       let result;
       if ( handlerThen ) {
         result = handlerThen( ...results );
@@ -397,7 +398,7 @@ function Ajax( url, options ) {
       if ( handlerCatch ) {
         handlerCatch( err );
       }
-    }).then(() => {
+    }).finally(() => {
       if ( handlerFinally ) {
         handlerFinally();
       }

@@ -1,6 +1,6 @@
 {
   "name": "fejax",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Fetch @ Ajax",
   "repository": "https://github.com/jokemmy/fejax.git",
   "keywords": [
@@ -40,6 +40,7 @@
   "dependencies": {
     "invariant": "^2.2.4",
     "object.pick": "^1.3.0",
+    "promisynch": "0.0.3",
     "qs": "^6.6.0",
     "whatitis": "^1.1.2"
   },
