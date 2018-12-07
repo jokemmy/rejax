@@ -1,6 +1,6 @@
 {
   "name": "fejax",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Fetch @ Ajax",
   "repository": "https://github.com/jokemmy/fejax.git",
   "keywords": [
@@ -24,6 +24,8 @@
     "src"
   ],
   "scripts": {
+    "start": "npm run build && npm run examples",
+    "examples": "node ./service/index.js",
     "clean": "rimraf lib dist es coverage",
     "test": "cross-env BABEL_ENV=commonjs jest",
     "test:watch": "npm test -- --watch",
@@ -40,7 +42,7 @@
   "dependencies": {
     "invariant": "^2.2.4",
     "object.pick": "^1.3.0",
-    "promisynch": "0.0.3",
+    "promisynch": "0.0.6",
     "qs": "^6.6.0",
     "whatitis": "^1.1.2"
   },
@@ -63,6 +65,11 @@
     "eslint-plugin-jsx-a11y": "^5.1.1",
     "eslint-plugin-react": "^7.1.0",
     "jest": "^20.0.4",
+    "koa": "^2.6.2",
+    "koa-body": "^4.0.4",
+    "koa-logger": "^3.2.0",
+    "koa-router": "^7.4.0",
+    "koa-static": "^5.0.0",
     "rimraf": "^2.6.1",
     "rollup": "^0.48.2",
     "rollup-plugin-babel": "^3.0.2",

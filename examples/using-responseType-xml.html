@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <title>Using ResponseType Document</title>
+    <script type="text/javascript" src="/fejax.js"></script>
+    <script type="text/javascript">
+      /* eslint-disable */
+
+      function print( string ) {
+        var p = document.createElement( 'p' );
+        p.innerHTML = string;
+        document.body.appendChild( p );
+      }
+
+      Fejax({
+        url: '/api/responsetype',
+        dataType: 'xml'
+      }).then(( req ) => {
+        console.log( req );
+        print( `结果: ${JSON.stringify( req.result )} 数据: ${JSON.stringify( req.data )}`)
+      }).catch(( err ) => {
+        console.log( 'err:', err );
+        print( err.toString())
+      });
+    </script>
+  </head>
+  <body>
+
+  <script>
+    // var xhr = new XMLHttpRequest();
+    // xhr.open('GET', 'http://www.html5rocks.com/en/tutorials/', true);
+    // xhr.responseType = 'document';
+    // xhr.onload = function(e) {
+    //   var doc = e.target.response;
+    //   var container = document.querySelector('ol');
+    //   container.innerHTML = ''; // clear out.
+    //   var articles = doc.querySelectorAll('.articles-list li');
+    //   var frag = document.createDocumentFragment();
+    //   [].forEach.call(articles, function(art, i) {
+    //     var title = art.querySelector('.title');
+    //     var summary = art.querySelector('.description');
+    //     var date = art.querySelector('.date');
+    //     var li = document.createElement('li');
+    //     li.appendChild(title);
+    //     li.appendChild(date);
+    //     li.appendChild(summary);
+    //     frag.appendChild(li);
+    //   });
+    //   container.appendChild(frag);
+    // };
+    // xhr.send();
+  </script>
+  </body>
+</html>

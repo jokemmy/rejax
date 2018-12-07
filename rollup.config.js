@@ -7,8 +7,11 @@ import babel from 'rollup-plugin-babel';
 
 const env = process.env.NODE_ENV;
 const config = {
-  name: 'fejax',
+  name: 'Fejax',
   input: 'src/index.js',
+  globals: {
+    promisynch: 'Promisynch'
+  },
   plugins: [
     nodeResolve({
       jsnext: true

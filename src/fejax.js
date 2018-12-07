@@ -382,7 +382,7 @@ function Ajax( url, options ) {
       handlerBefore( ...xhrs );
     }
 
-    sending = Promisynch.all( xhrs ).then(( ...results ) => {
+    sending = Promisynch.all( xhrs ).then(( results ) => {
       let result;
       if ( handlerThen ) {
         result = handlerThen( ...results );

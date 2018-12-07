@@ -1,4 +1,7 @@
 {
   "parser": "babel-eslint",
-  "extends": "promise"
+  "extends": "promise",
+  "rules": {
+    "no-console": [0]
+  }
 }
