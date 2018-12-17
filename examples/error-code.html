@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <title>Using ResponseType Document</title>
+    <script type="text/javascript" src="/fejax.js"></script>
+    <script type="text/javascript">
+      /* eslint-disable */
+
+      function print( string ) {
+        var p = document.createElement( 'p' );
+        p.innerHTML = string;
+        document.body.appendChild( p );
+      }
+
+      Fejax({
+        url: '/api/error',
+        data: {
+          code: 500
+        }
+      }).then(( req ) => {
+        console.log( req );
+        print( `结果: ${JSON.stringify( req.result )} 数据: ${JSON.stringify( req.data )}`)
+      }).catch(( err ) => {
+        console.log( 'err:', err );
+        print( err.toString())
+      });
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

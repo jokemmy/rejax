@@ -58,6 +58,10 @@ router.get( '/api/responsetype', async ( ctx ) => {
   }
 });
 
+router.all( '/api/error', async ( ctx ) => {
+  ctx.throw( parseInt( ctx.request.body.code ) || 400, '没有匹配到合适的类型' );
+});
+
 app.use( koaBody());
 app.use( logger());
 app.use( serve( path.join( __dirname,  '../dist' )));
