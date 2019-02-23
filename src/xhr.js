@@ -334,7 +334,7 @@ function connection( method, url, data, options ) {
     xhr.send( options.paramsSerializer( data ));
   } else if ( options.contentType === 'formdata' ) {
     xhr.send( data || null );
-  } else if ( options.contentType === 'json' && is.PlainObject( data )) {
+  } else if ( options.contentType === 'json' && ( is.PlainObject( data ) || is.Array( data ))) {
     xhr.send( JSON.stringify( data ));
   } else if ( options.contentType === 'json' ) {
     xhr.send( data || null );
