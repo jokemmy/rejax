@@ -171,6 +171,9 @@ function getOptions( url, options_ ) {
     }
     options.method = getMethod( options );
 
+  } else if ( is.Object( url ) && url[ajaxSymbol]) {
+    options[ajaxHandler] = () => url;
+
   // url is PlainObject, only one argument
   } else if ( is.PlainObject( url )) {
     assignOption( options, url );
@@ -182,7 +185,10 @@ function getOptions( url, options_ ) {
   }
 
   // dataType default 'json'
-  if ( !is.String( options.dataType ) || options.dataType === '' ) {
+  // false 二进制上传
+  if ( options.dataType === false ) {
+    options.dataType = false;
+  } else if ( options.dataType === '' || !is.String( options.dataType )) {
     options.dataType = 'json';
   }
 
@@ -443,10 +449,10 @@ function Ajax( url, options ) {
 
 
   // success === done === then && error === fail === catch
-  // chainMethod.success =
-  // chainMethod.done = chainMethod.then;
-  // chainMethod.error =
-  // chainMethod.fail = chainMethod.catch;
+  chainMethod.success =
+  chainMethod.done = chainMethod.then;
+  chainMethod.error =
+  chainMethod.fail = chainMethod.catch;
 
   // init
   return chainMethod.ajax( url, globalMap.mergeOptions( globalMap.globalOptions, options ));
